@@ -238,12 +238,32 @@ class Cell {
     }
 }
 
+class Modal {
+    constructor() {
+        $('#modal').click(() => this.hide());
+        $('#game-status').click((e) => e.stopPropagation());
+    }
+
+    hide() {
+        $('#modal').css('display', 'none');
+    }
+
+    show() {
+        $('#modal').css('display', 'flex');
+    }
+
+    setText(text) {
+        $('#game-status').text(text);
+    }
+}
+
 class Game {
     constructor(boardSize, player1, player2) {
         this.board = new Board(boardSize, (result) => this.onFlipCell(result), () => this.getCurrentPlayer());
         this.player1 = player1;
         this.player2 = player2;
         this.currentPlayer = this.player1;
+        this.modal = new Modal();
     }
 
     onFlipCell(result) {
@@ -257,12 +277,12 @@ class Game {
         }
 
         if (this.board.isGameOver()) {
-            $('#modal').css('display', 'flex');
+            this.modal.show();
             if (this.player1.score === this.player2.score) {
-                $('#game-status').text("It's a tie!");
+                this.modal.setText("It's a tie!")
             } else {
                 const winner = this.player1.score > this.player2.score ? this.player1.playerName : this.player2.playerName;
-                $('#game-status').text(`${winner} wins!`);
+                this.modal.setText(`${winner} wins!`);
             }
         }
     }

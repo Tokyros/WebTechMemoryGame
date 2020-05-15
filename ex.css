@@ -11,6 +11,31 @@ label {
     font-size: small;
 }
 
+#modal {
+    position: fixed;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.3);
+    width: 100%;
+    height: 100%;
+    z-index: 99999;
+    top: 0;
+    left: 0;
+    display: none;
+}
+
+#game-status {
+    background-color: white;
+    width: 20%;
+    height: 20%;
+    align-items: center;
+    display: flex;
+    justify-content: center;
+    border-radius: 20px;
+    font-weight: 800;
+    box-shadow: 0px 2px 6px 2px grey;
+}
+
 #controls {
     padding-bottom: 5px;
     border-bottom: 1px solid #000;
@@ -33,14 +58,14 @@ label {
     color: #4a68a8;
     border: 1px solid black;
     padding: 10px;
+    padding: 5px;
     height: 140px;
     width: 140px;
-    display: flex;
     justify-content: center;
     align-items: center;
     font-size: 36px;
     cursor: pointer;
-    
+    border-radius: 25px;
     transform: rotateY(0);
     transition: transform 0.6s;
     display: block;
@@ -56,7 +81,8 @@ label {
 .game-board .cell img {
     max-height: 100%;
     max-width: 100%;
-    /* visibility: hidden; */
+    visibility: hidden;
+    border-radius: 20px;
 }
 
 .game-board .cell.pending img {
@@ -66,15 +92,6 @@ label {
 
 .game-board .cell.success img {    
     visibility: visible;
-}
-
-.game-board .cell.success {
-    background-color: green;
-    
-}
-
-.game-board .cell.failure {
-    color: red;
 }
 
 .game-board .cell.pending {
@@ -89,4 +106,12 @@ label {
 .game-board .cell:hover {
     background: #2b7555;
     color: white;
+}
+
+.name-1 {
+    color: blue;
+}
+
+.name-2 {
+    color: red;
 }

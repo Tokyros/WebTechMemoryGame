@@ -93,9 +93,12 @@ function createGameConfiguration(gridSize) {
 }
 
 class Player {
+    static playerCount = 0;
+
     constructor(playerName) {
         this.playerName = playerName;
         this.score = 0;
+        this.playerNumber = ++Player.playerCount;
         this.initializeElement();
     }
 
@@ -105,7 +108,7 @@ class Player {
         this.element.addClass('player');
         
         this.playerNameElement = $('<div></div>');
-        this.playerNameElement.addClass('name');
+        this.playerNameElement.addClass(`name-${this.playerNumber}`);
         this.playerNameElement.text(this.playerName);
 
         this.scoreElement = $('<div></div>');
@@ -123,20 +126,20 @@ class Player {
     }
 
     updateScore() {
-        console.log(this.score);
         this.scoreElement.text(this.score);
     }
 }
 
 class Board {
-    constructor(boardSize, onFlipCell) {
+    constructor(boardSize, onFlipCell, getCurrentPlayer) {
         this.boardSize = boardSize;
+        this.flippedCellId = null;
         this.cells = createBoard(boardSize).map((value, i) => new Cell(i, value, Math.floor(i / boardSize)))
         this.cells.forEach((cell) => {
             cell.registerOnClick(async () => {
                 if (!cell.isCellSuccessful() && !this.lockFlipping) {
-                    const result = await this.flipCell(cell.id);
-                    console.log(result);
+                    const currentPlayer = getCurrentPlayer();
+                    const result = await this.flipCell(cell.id, currentPlayer);
                     onFlipCell(result);
                 }
             })
@@ -151,10 +154,10 @@ class Board {
         return this.cells[cellId];
     }
 
-    flipCell(cellId) {
+    flipCell(cellId, currentPlayer) {
         return new Promise((res) => {
             const cellToFlip = this.getCell(cellId);
-            if (this.flippedCellId) {
+            if (this.flippedCellId !== null) {
                 this.lockFlipping = true;
                 if (this.flippedCellId === cellToFlip.id) {
                     res();
@@ -165,8 +168,8 @@ class Board {
                     const flippedCell = this.getCell(this.flippedCellId);
                     this.flippedCellId = null;
                     if (cellToFlip.value === flippedCell.value) {
-                        cellToFlip.markCellAsSuccess();
-                        flippedCell.markCellAsSuccess();
+                        cellToFlip.markCellAsSuccess(currentPlayer.playerNumber);
+                        flippedCell.markCellAsSuccess(currentPlayer.playerNumber);
                         res('success');
                     } else {
                         cellToFlip.markCellAsFailure();
@@ -182,7 +185,7 @@ class Board {
         }).then((res) => {
             this.lockFlipping = false;
             return res;
-        })
+        });
     }
 
     render() {
@@ -212,19 +215,18 @@ class Cell {
     }
 
     markCellAsPending() {
-        this.clearCellStatus()
+        this.clearCellStatus();
         this.element.addClass('pending');
     }
 
-    markCellAsSuccess() {
-        this.clearCellStatus()
+    markCellAsSuccess(playerNumber) {
+        this.clearCellStatus();
         this.element.addClass('success');
+        this.element.css('background-color', playerNumber === 1 ? 'blue' : 'red');
     }
 
     markCellAsFailure() {
-        this.clearCellStatus()
-        this.element.addClass('failure');
-        setTimeout(() => this.clearCellStatus(), 1000);
+        setTimeout(() => this.clearCellStatus(), 500);
     }
 
     isCellSuccessful() {
@@ -238,15 +240,13 @@ class Cell {
 
 class Game {
     constructor(boardSize, player1, player2) {
-        this.board = new Board(boardSize, (result) => this.onFlipCell(result));
+        this.board = new Board(boardSize, (result) => this.onFlipCell(result), () => this.getCurrentPlayer());
         this.player1 = player1;
         this.player2 = player2;
-        this.flippedCell = null;
         this.currentPlayer = this.player1;
     }
 
     onFlipCell(result) {
-        console.log(result);
         switch (result) {
             case 'success':
                 this.incrementPlayerScore(this.currentPlayer)
@@ -257,11 +257,21 @@ class Game {
         }
 
         if (this.board.isGameOver()) {
-            alert("FUCK YOU")
+            $('#modal').css('display', 'flex');
+            if (this.player1.score === this.player2.score) {
+                $('#game-status').text("It's a tie!");
+            } else {
+                const winner = this.player1.score > this.player2.score ? this.player1.playerName : this.player2.playerName;
+                $('#game-status').text(`${winner} wins!`);
+            }
         }
     }
 
-    incrementPlayerScore(player, score) {
+    getCurrentPlayer() {
+        return this.currentPlayer;
+    }
+
+    incrementPlayerScore(player) {
         player.incrementScore();
     }
 

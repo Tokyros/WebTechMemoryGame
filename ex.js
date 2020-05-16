@@ -3,66 +3,116 @@ try {
 } catch (e) {
     console.log('REMOVE WHEN DONE')
 }
+let db;
 
 if (window.openDatabase) {
-    var mydb = openDatabase("cars", "0.1", "A Database of Cars I Like", 1024 * 1024);
-    mydb.transaction(function (t) {
-        t.executeSql("CREATE TABLE IF NOT EXISTS cars (car STRING)");
-    });
+    db = openDatabase("memory-game", "0.1", "Memory game database", 1024 * 1024);
+    initializeDatabase(db).then(initializeGameSetupGUI);
 } else {
     alert("WebSQL is not supported by your browser!");
 }
 
-function updateCarList(transaction, results) {
-    var listitems = "";
-    var listholder = document.getElementById("carlist");
-    listholder.innerHTML = "";
-    var i;
-    for (i = 0; i < results.rows.length; i++) {
-        var row = results.rows.item(i);
-        var car = JSON.parse(row.car)
-
-        listholder.innerHTML += "<li>Model - " + car.model + " Type - " + car.type + "</li>";
-    }
+function persistGameConfig(gameConfig) {
+    db.transaction((t) => {
+        t.executeSql(`UPDATE CONFIG SET gridSize = ${gameConfig.gridSize}, player1 = '${gameConfig.player1}', player2 = '${gameConfig.player2}' WHERE id = 1;`)
+    });
 }
 
-//function to get the list of cars from the database
+function addGameResult(gameResult) {
+    db.transaction((t) => {
+        t.executeSql(`INSERT INTO GAMES (player1, player2, winner) VALUES ("${gameResult.player1}", "${gameResult.player2}", "${gameResult.winner}")`)
+    })
+}
 
-function outputCars() {
-    //check to ensure the mydb object has been created
-    if (mydb) {
-        //Get all the cars from the database with a select statement, set outputCarList as the callback function for the executeSql command
-        mydb.transaction(function (t) {
-            t.executeSql("SELECT * FROM cars", [], updateCarList);
+function initializeConfig(t) {
+    return new Promise((res) => {
+        t.executeSql("CREATE TABLE IF NOT EXISTS CONFIG (id, gridSize, player1, player2)");
+        t.executeSql("SELECT * FROM CONFIG", [], (t, config) => {
+            if (!config.rows.length) {
+                t.executeSql('INSERT INTO CONFIG (id, gridSize, player1, player2) VALUES (1, 3, "Player 1", "Player 2")');
+                res({gridSize: 3, player1: "Player 1", player2: "Player 2"});
+            } else {
+                res(config.rows[0])
+            }
         });
-    } else {
-        alert("db not found, your browser does not support web sql!");
-    }
+    })
 }
 
-//function to add the car to the database
+function updateLeaderboard(games) {
+    return new Promise((res) => {
+        db.transaction((t) => {
+            t.executeSql("SELECT * FROM GAMES", [], (t, games) => {
+                if (games.rows.length) {
+                    const leaderboard = Array.from(games.rows).reduce((leaderBoard, game) => {
+                        const winner = game.winner;
+                        return {
+                            ...leaderBoard,
+                            [winner]: leaderBoard[winner] ? leaderBoard[winner] + 1 : 1
+                        }
+                    }, {});
+                    const players = Object.keys(leaderboard);
+                    const playersSorted = players.sort((p1, p2) => leaderboard[p2] - leaderboard[p1]);
+                    const playerRows = playersSorted.map((player) => {
+                        return $(`<div class="leaderboard-cell">${player} - ${leaderboard[player]} wins</div>`);
+                    })
+                    $('.leaderboard').empty();
+                    $('.leaderboard').append(`<h1>Leaderboard</h1>`);
+                    $(".leaderboard").append(playerRows);
+                }
+                res();
+            })
+        })
+    })
+    
 
-function addCar() {
-    if (mydb) {
-        var model = document.getElementById("carmodel").value;
-        var car = {
-            model: model,
-            type: "SUV"
-        };
-        if (model !== "") {
-            mydb.transaction(function (t) {
-                t.executeSql("INSERT INTO cars (car) VALUES (?)", [JSON.stringify(car)]);
-                outputCars();
+    // const leaderboard = games.reduce((leaderBoard, game) => {
+    //     const winner = game.winner;
+    //     return {
+    //         ...leaderBoard,
+    //         [winner]: leaderBoard[winner] ? leaderBoard[winner] + 1 : 1
+    //     }
+    // }, {});
+    // const players = Object.keys(leaderboard);
+    // const playersSorted = players.sort((p1, p2) => leaderboard[p2] - leaderboard[p1]);
+    // const playerRows = playersSorted.map((player) => {
+    //     return $(`<div class="leaderboard-cell">${player} - ${leaderboard[player]} wins</div>`);
+    // })
+    // $(".leaderboard").append(playerRows);
+}
+
+function initializeGame(t) {
+    return new Promise((res) => {
+        t.executeSql("CREATE TABLE IF NOT EXISTS GAMES (player1, player2, winner)");
+        updateLeaderboard().then(res);
+        // t.executeSql("SELECT * FROM GAMES", [], (t, games) => {
+        //     console.log('here');
+        //     if (games.rows.length) {
+        //         updateLeaderboard(Array.from(games.rows));
+        //     }
+        //     res();
+        // })
+    })
+}
+
+async function initializeDatabase() {
+    return new Promise((res) => {
+        db.transaction(function (t) {
+            const configPromise = initializeConfig(t);
+            const gamePromise = initializeGame(t);
+            Promise.all([configPromise, gamePromise]).then(([config]) => {
+                res(config);
             });
-        } else {
-            alert("You must enter a make and model!");
-        }
-    } else {
-        alert("db not found, your browser does not support web sql!");
-    }
+        });
+    })
 }
 
-// outputCars();
+function initializeGameSetupGUI(gameConfig) {
+    console.log(gameConfig);
+    $("#player1-name-input").val(gameConfig.player1);
+    $("#player2-name-input").val(gameConfig.player2);
+    $("#board-size").val(gameConfig.gridSize);
+    $(".game-setup").css('display', 'flex');
+}
 
 function shuffle(arr) {
     return arr.sort(function (a, b) { return 0.5 - Math.random() })
@@ -254,10 +304,15 @@ class Modal {
 
     hide() {
         $('#modal').css('display', 'none');
+        this.resolveClosePromise();
     }
 
     show() {
+        const closePromise = new Promise((res) => {
+            this.resolveClosePromise = res;
+        })
         $('#modal').css('display', 'flex');
+        return closePromise;
     }
 
     setText(text) {
@@ -294,12 +349,13 @@ class Game {
         }
 
         if (this.board.isGameOver()) {
-            this.modal.show();
+            this.modal.show().then(showGameSetup);
             if (this.player1.score === this.player2.score) {
-                this.modal.setText("It's a tie!")
+                this.modal.setText("It's a tie! click anywhere to play again")
             } else {
                 const winner = this.player1.score > this.player2.score ? this.player1.playerName : this.player2.playerName;
-                this.modal.setText(`${winner} wins!`);
+                this.modal.setText(`${winner} wins! click anywhere to play again`);
+                addGameResult({player1: this.player1.playerName, player2: this.player2.playerName, winner});
             }
         }
     }
@@ -326,11 +382,25 @@ class Game {
     }
 }
 
+function showGame() {
+    $(".score-board").show();
+    $(".game-board").show();
+    $(".score-board").empty();
+    $(".game-board").empty();
+}
 
-function startGame(boardSize) {
+function showGameSetup() {
+    updateLeaderboard()
+    $(".game-setup").show()
+    $('.current-player').hide()
+    $(".score-board").hide();
+    $(".game-board").hide();
+}
+
+function startGame(boardSize, player1Name, player2Name) {
+    persistGameConfig({gridSize: boardSize, player1: player1Name, player2: player2Name});
     if (boardSize >= 3) {
-        $(".score-board").empty();
-        $(".game-board").empty();
+        showGame();
         const game = new Game(boardSize, new Player($('#player1-name-input').val()), new Player($("#player2-name-input").val()));
         game.render();
         $(".game-setup").hide()

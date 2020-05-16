@@ -125,14 +125,51 @@ label {
 }
 
 .game-setup {
-    display: flex;
+    display: none;
     justify-content: center;
     flex-direction: column;
     align-items: center;
 }
 
+.leaderboard {
+    display: flex;
+    flex-direction: column;
+
+    counter-reset: leaderboard;
+}
+
+.leaderboard h1 {
+    font-size: 72px;
+    background: -webkit-linear-gradient(45deg, #09009f, #00ff95 80%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.leaderboard .leaderboard-cell {
+    padding: 10px 24px;
+    font-size: 24px;
+    font-weight: 900;
+
+    background: linear-gradient(90deg, #346fd4 0%, #d9e7ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    box-shadow: 2px 1px 7px black;
+    border-radius: 5px;
+    text-align: center;
+}
+
+.leaderboard .leaderboard-cell:before {
+    counter-increment: leaderboard 1;
+    content: counter(leaderboard, upper-roman) ". ";
+}
+
 .game-setup > div {
     display: flex;
+}
+
+.game-setup .game-details-wrapper {
+    border: 1px solid gray;
+    padding: 24px;
 }
 
 .game-setup div {
@@ -143,7 +180,7 @@ label {
     padding: 7px 24px;
     border: none;
     background: rgb(61, 61, 160);
-    border-radius: 5px;
+    border-radius: 25px;
     margin-top: 5px;
     color: white;
     cursor: pointer;

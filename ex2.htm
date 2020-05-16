@@ -19,7 +19,7 @@
     </div>
     <div class="game-setup">
         <h2>Game setup</h2>
-        <div>
+        <div class="game-details-wrapper">
             <div class="player-name-input-wrapper">
                 <label for="player1-name">Enter player 1 name:</label>
                 <input id="player1-name-input" value="Player 1" type="text" name="player1-name">
@@ -32,9 +32,11 @@
                 <label for="board-size">Enter board size: </label>
                 <input id="board-size" name="board-size" value="3" type="number" min="3">
             </div>
-            <button onclick="startGame($('#board-size').val())">Start</button>
-        </div>  
-        
+            <button onclick="startGame($('#board-size').val(), $('#player1-name-input').val(), $('#player2-name-input').val())">Start</button>
+        </div>
+        <div class="leaderboard">
+            
+        </div>
     </div>
 
     <div class="score-board">

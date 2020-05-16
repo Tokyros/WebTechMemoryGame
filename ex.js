@@ -70,7 +70,12 @@ function shuffle(arr) {
 
 function createBoard(boardSize) {
     let currentCard = 1;
-    const board = new Array(boardSize * boardSize).fill('').map((_, i) => {
+    const cardCount = boardSize * boardSize;
+    const maxCardValue = Math.floor(cardCount / 2);
+    const board = new Array(cardCount).fill('').map((_, i) => {
+        if (currentCard > maxCardValue) {
+            return -1;
+        }
         if (i % 2 === 1) {
             return currentCard++;
         } else {
@@ -78,18 +83,6 @@ function createBoard(boardSize) {
         }
     });
     return shuffle(board);
-}
-
-function createGameConfiguration(gridSize) {
-    const board = createBoard(gridSize);
-    // const player1 = prompt("Enter player 1 name");
-    // const player2 = prompt("Enter player 2 name");
-
-    return {
-        // player1,
-        // player2,
-        board
-    }
 }
 
 class Player {
@@ -109,15 +102,10 @@ class Player {
         
         this.playerNameElement = $('<div></div>');
         this.playerNameElement.addClass(`name-${this.playerNumber}`);
-        this.playerNameElement.text(this.playerName);
+        this.playerNameElement.addClass(`player-score`);
+        this.updateScore();
 
-        this.scoreElement = $('<div></div>');
-        this.scoreElement.addClass('score');
-        this.scoreElement.text(this.score);
-
-        this.element.append('<h1>Player: <h1>')
         this.element.append(this.playerNameElement);
-        this.element.append(this.scoreElement);
     }
 
     incrementScore() {
@@ -126,66 +114,83 @@ class Player {
     }
 
     updateScore() {
-        this.scoreElement.text(this.score);
+        this.playerNameElement.text(`${this.playerName} score: ${this.score}`);
     }
 }
 
 class Board {
-    constructor(boardSize, onFlipCell, getCurrentPlayer) {
+    constructor(boardSize, onCellFlipped, getCurrentPlayer) {
         this.boardSize = boardSize;
-        this.flippedCellId = null;
+        this.pendingFlippedCellId = null;
+        this.isLocked = false;
         this.cells = createBoard(boardSize).map((value, i) => new Cell(i, value, Math.floor(i / boardSize)))
-        this.cells.forEach((cell) => {
-            cell.registerOnClick(async () => {
-                if (!cell.isCellSuccessful() && !this.lockFlipping) {
-                    const currentPlayer = getCurrentPlayer();
-                    const result = await this.flipCell(cell.id, currentPlayer);
-                    onFlipCell(result);
-                }
-            })
+        this.cells.forEach((cell) => this.registerOnCellClick(cell, onCellFlipped, getCurrentPlayer))
+    }
+
+    registerOnCellClick(cell, onCellFlipped, getCurrentPlayer) {
+        cell.registerOnClick(async () => {
+            if (!cell.isCellSuccessful() && !this.isLocked && cell.value !== -1) {
+                const result = await this.flipCell(cell.id, getCurrentPlayer());
+                onCellFlipped(result);
+            }
         })
     }
 
     isGameOver() {
-        return this.cells.every((cell) => cell.isCellSuccessful())
+        return this.cells.every((cell) => cell.value === -1 || cell.isCellSuccessful())
     }
 
     getCell(cellId) {
         return this.cells[cellId];
     }
 
+    lock() {
+        this.isLocked = true;
+    }
+
+    unlock() {
+        this.isLocked = false;
+    }
+
     flipCell(cellId, currentPlayer) {
+        const cellToFlip = this.getCell(cellId);
+
+        if (this.pendingFlippedCellId === null) {
+            cellToFlip.markCellAsPending();
+            this.pendingFlippedCellId = cellId;
+            return Promise.resolve('pending');
+        }
+
+        if (this.pendingFlippedCellId === cellToFlip.id) {
+            return Promise.resolve('neutral');
+        }
+
+        this.lock();
         return new Promise((res) => {
-            const cellToFlip = this.getCell(cellId);
-            if (this.flippedCellId !== null) {
-                this.lockFlipping = true;
-                if (this.flippedCellId === cellToFlip.id) {
-                    res();
-                    return;
-                }
-                cellToFlip.markCellAsPending();
+            cellToFlip.markCellAsPending();
+            const pendingFlippedCell = this.getCell(this.pendingFlippedCellId);
+            this.pendingFlippedCellId = null;
+            // Delay the result for one second, 
+            setTimeout(() => {
+                const result = this.checkCellMatch(cellToFlip, pendingFlippedCell, currentPlayer);
+                res(result);
                 setTimeout(() => {
-                    const flippedCell = this.getCell(this.flippedCellId);
-                    this.flippedCellId = null;
-                    if (cellToFlip.value === flippedCell.value) {
-                        cellToFlip.markCellAsSuccess(currentPlayer.playerNumber);
-                        flippedCell.markCellAsSuccess(currentPlayer.playerNumber);
-                        res('success');
-                    } else {
-                        cellToFlip.markCellAsFailure();
-                        flippedCell.markCellAsFailure();
-                        res('failure');
-                    }
-                }, 1000)
-            } else {
-                cellToFlip.markCellAsPending();
-                this.flippedCellId = cellId;
-                res('pending');
-            }
-        }).then((res) => {
-            this.lockFlipping = false;
-            return res;
+                    this.unlock();
+                }, 650);
+            }, 1000)
         });
+    }
+
+    checkCellMatch(cellA, cellB, currentPlayer) {
+        if (cellA.value === cellB.value) {
+            cellA.markCellAsSuccess(currentPlayer.playerNumber);
+            cellB.markCellAsSuccess(currentPlayer.playerNumber);
+            return 'success';
+        } else {
+            cellA.markCellAsFailure();
+            cellB.markCellAsFailure();
+            return 'failure';
+        }
     }
 
     render() {
@@ -212,6 +217,9 @@ class Cell {
     clearCellStatus() {
         this.element.removeClass();
         this.element.addClass('cell');
+        if (this.value === -1) {
+            this.element.addClass('unpaired-card')
+        }
     }
 
     markCellAsPending() {
@@ -262,8 +270,17 @@ class Game {
         this.board = new Board(boardSize, (result) => this.onFlipCell(result), () => this.getCurrentPlayer());
         this.player1 = player1;
         this.player2 = player2;
-        this.currentPlayer = this.player1;
+        this.setCurrentPlayer(player1);
         this.modal = new Modal();
+    }
+
+    setCurrentPlayer(player) {
+        this.currentPlayer = player;
+        $('.current-player').text(`Current player: ${this.currentPlayer.playerName}`);
+    }
+
+    getNextPlayer() {
+        return this.currentPlayer.playerName === this.player1.playerName ? this.player2 : this.player1
     }
 
     onFlipCell(result) {
@@ -272,7 +289,7 @@ class Game {
                 this.incrementPlayerScore(this.currentPlayer)
                 break;
             case 'failure':
-                this.currentPlayer = this.currentPlayer.playerName === this.player1.playerName ? this.player2 : this.player1;
+                this.setCurrentPlayer(this.getNextPlayer());
                 break;
         }
 
@@ -296,6 +313,7 @@ class Game {
     }
 
     render() {
+        
         $('.score-board').append(
             this.player1.element,
             this.player2.element,
@@ -304,15 +322,20 @@ class Game {
     }
 
     static createGame(gridSize) {
-        const {board} = createGameConfiguration(gridSize)
-        return new Game(board)
+        return new Game(createBoard(gridSize))
     }
 }
 
 
 function startGame(boardSize) {
-    const game = new Game(boardSize, new Player('Dor'), new Player("Shahar"));
-    game.render();
+    if (boardSize >= 3) {
+        $(".score-board").empty();
+        $(".game-board").empty();
+        const game = new Game(boardSize, new Player($('#player1-name-input').val()), new Player($("#player2-name-input").val()));
+        game.render();
+        $(".game-setup").hide()
+        $('.current-player').show()
+    } else {
+        alert('Board size must be at least 3!')
+    }
 }
-
-startGame(4);

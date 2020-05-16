@@ -85,6 +85,14 @@ label {
     border-radius: 20px;
 }
 
+.game-board .cell.unpaired-card {
+    background: red;
+}
+
+.game-board .cell.unpaired-card:hover {
+    background: red;
+}
+
 .game-board .cell.pending img {
     transform: rotateY(180deg);
     visibility: visible;
@@ -114,4 +122,57 @@ label {
 
 .name-2 {
     color: red;
+}
+
+.game-setup {
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+}
+
+.game-setup > div {
+    display: flex;
+}
+
+.game-setup div {
+    margin: 5px 0;
+}
+
+.game-setup button {
+    padding: 7px 24px;
+    border: none;
+    background: rgb(61, 61, 160);
+    border-radius: 5px;
+    margin-top: 5px;
+    color: white;
+    cursor: pointer;
+}
+
+.game-setup button:hover {
+    background: rgba(61, 61, 160, 0.85);
+    color: black;
+}
+
+.game-setup input {
+    border: none;
+    font-weight: 900;
+    font-size: 16px;
+}
+
+.score-board {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.score-board > .player {
+    margin: 5px;
+}
+
+.current-player {
+    text-align: center;
+    padding: 40px;
+    font-size: 30px;
+    font-weight: 900;
 }

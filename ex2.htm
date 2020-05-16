@@ -17,9 +17,31 @@
     <div class="head">
         <h1>Memory Paluza - Awesome memory game!</h1>
     </div>
+    <div class="game-setup">
+        <h2>Game setup</h2>
+        <div>
+            <div class="player-name-input-wrapper">
+                <label for="player1-name">Enter player 1 name:</label>
+                <input id="player1-name-input" value="Player 1" type="text" name="player1-name">
+            </div>
+            <div class="player-name-input-wrapper">
+                <label for="player2-name">Enter player 2 name: </label>
+                <input id="player2-name-input" value="Player 2" type="text" name="player2-name">
+            </div>
+            <div class="board-size-input-wrapper">
+                <label for="board-size">Enter board size: </label>
+                <input id="board-size" name="board-size" value="3" type="number" min="3">
+            </div>
+            <button onclick="startGame($('#board-size').val())">Start</button>
+        </div>  
+        
+    </div>
 
     <div class="score-board">
 
+    </div>
+    <div class="current-player" hidden>
+        
     </div>
     <div class="game-board">
 
